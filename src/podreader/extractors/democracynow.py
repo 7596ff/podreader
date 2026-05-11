@@ -80,16 +80,36 @@ def _extract_segment_title(soup):
 
 def _extract_page_transcript(soup):
     """Extract transcript text from a single DN page."""
-    # DN transcripts are in .story_transcript or #story_transcript
-    for selector in [".story_transcript", "#story_transcript", ".transcript"]:
-        el = soup.select_one(selector)
-        if el:
-            return el.get_text(separator="\n", strip=True)
+    # DN structure: .transcript is a label, the actual text is in a sibling div.text
+    transcript_label = soup.select_one(".transcript")
+    if transcript_label:
+        # Look for the sibling div with class "text"
+        for sib in transcript_label.next_siblings:
+            if hasattr(sib, "name") and sib.name == "div" and "text" in (sib.get("class") or []):
+                text = sib.get_text(separator="\n", strip=True)
+                if len(text) > 100:
+                    return text
 
-    # Fallback: look for paragraphs in the main content
-    content = soup.select_one(".story_body") or soup.select_one("article")
-    if content:
-        paragraphs = content.find_all("p")
-        return "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+    # Also try direct .text selector in case of different page structure
+    text_div = soup.select_one("div.text")
+    if text_div:
+        text = text_div.get_text(separator="\n", strip=True)
+        if len(text) > 100:
+            return text
+
+    # Fallback: look for the main content area and extract paragraphs
+    for selector in [".story_body", "article", ".main_container", "#content", "main"]:
+        content = soup.select_one(selector)
+        if content:
+            paragraphs = content.find_all("p")
+            text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+            if len(text) > 100:
+                return text
+
+    # Last resort: all paragraphs
+    paragraphs = soup.find_all("p")
+    text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+    if len(text) > 100:
+        return text
 
     return None
