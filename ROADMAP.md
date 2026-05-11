@@ -3,7 +3,7 @@
 ## v1.0 (MVP)
 - Feed subscription and state tracking
 - Built-in extractors (NPR, Democracy Now)
-- Whisper fallback via whisper-timestamped (subprocess, crash-isolated)
+- Whisper fallback via openai-whisper (subprocess, crash-isolated)
 - Atomic state writes (`os.replace`)
 - Incremental persistence (`fetch --process` commits per-episode)
 - GUID fallback (`sha256(link + title)`) for feeds without guids
@@ -16,6 +16,8 @@
 - Cache size limit (`max_cache_gb` config)
 
 ## v1.1
+- Show episode duration in `list` and `status` output (from RSS enclosure/itunes:duration)
+- `fetch --first N` to grab oldest episodes
 - User-defined extractor plugins (`~/.podreader/extractors/`)
 - `podreader search <query>` across saved transcripts
 - `podreader purge --older-than <days>` cleanup command
