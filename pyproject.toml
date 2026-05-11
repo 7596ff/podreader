@@ -7,7 +7,6 @@ dependencies = [
     "requests",
     "beautifulsoup4",
     "tomli-w",
-    "whisper-timestamped",
 ]
 
 [project.scripts]

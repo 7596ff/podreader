@@ -27,13 +27,18 @@
             tomli-w
           ];
 
-          # whisper-timestamped is optional — heavy ML dependency
-          # Install separately or use whisper-cpp
+          # openai-whisper is a runtime dependency — the `whisper` CLI
+          # must be on PATH for the whisper fallback to work
+          propagatedBuildInputs = [ python.pkgs.openai-whisper ];
 
           nativeCheckInputs = [ python.pkgs.pytest ];
           checkPhase = ''
             pytest tests/ -k "not test_transcripts"
           '';
+
+          makeWrapperArgs = [
+            "--prefix" "PATH" ":" "${pkgs.ffmpeg}/bin"
+          ];
         };
 
         devShells.default = pkgs.mkShell {
@@ -42,7 +47,6 @@
             pkgs.uv
             pkgs.ffmpeg
           ];
-          LD_LIBRARY_PATH = "${pkgs.stdenv.cc.cc.lib}/lib";
         };
       });
 }

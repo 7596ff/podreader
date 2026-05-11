@@ -77,35 +77,25 @@ def download_audio(url, cache_dir):
 
 
 def run_whisper(audio_path, model="base"):
-    """Run whisper-timestamped as subprocess. Returns transcript text."""
+    """Run openai-whisper as subprocess. Returns transcript text."""
     output_dir = os.path.dirname(audio_path)
-    # Use whisper_timestamped via a script to avoid __main__ issues
-    # Write result to a file instead of stdout to avoid stderr contamination
-    import json as _json
-    import tempfile
-    result_file = tempfile.mktemp(suffix=".json")
-    script = (
-        "import whisper_timestamped as wt; import json\n"
-        f"model = wt.load_model('{model}')\n"
-        f"result = wt.transcribe(model, '{audio_path}')\n"
-        f"with open('{result_file}', 'w') as f:\n"
-        f"    json.dump(result, f)\n"
-    )
     result = subprocess.run(
-        [sys.executable, "-c", script],
+        [
+            "whisper", audio_path,
+            "--model", model,
+            "--output_format", "txt",
+            "--output_dir", output_dir,
+        ],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         raise RuntimeError(f"Whisper failed: {result.stderr}")
 
-    if not os.path.exists(result_file):
-        raise RuntimeError(f"Whisper produced no output. stderr: {result.stderr}")
+    # whisper outputs a .txt file named after the input file
+    txt_path = os.path.join(output_dir, os.path.splitext(os.path.basename(audio_path))[0] + ".txt")
+    if not os.path.exists(txt_path):
+        raise RuntimeError(f"Whisper produced no output file. stderr: {result.stderr}")
 
-    with open(result_file, "r") as f:
-        data = _json.load(f)
-    os.unlink(result_file)
-
-    # Extract text from segments
-    segments = data.get("segments", [])
-    return "\n".join(seg.get("text", "").strip() for seg in segments)
+    with open(txt_path, "r") as f:
+        return f.read()
