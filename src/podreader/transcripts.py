@@ -45,7 +45,14 @@ def _save_transcript(text, feed_name, entry, data_dir):
     """Save transcript text to disk. Returns the path."""
     from podreader.state import slugify, guid_or_fallback
     guid = guid_or_fallback(entry)
-    pub_date = getattr(entry, "published", "unknown")
+    # Use parsed date if available, fall back to raw
+    pp = getattr(entry, "published_parsed", None)
+    import time
+    if pp and isinstance(pp, time.struct_time):
+        pub_date = f"{pp.tm_year}-{pp.tm_mon:02d}-{pp.tm_mday:02d}"
+    else:
+        raw = getattr(entry, "published", "unknown")
+        pub_date = str(raw)[:10] if raw else "unknown"
     slug = slugify(entry.title, pub_date, guid)
     transcript_dir = os.path.join(data_dir, "transcripts", feed_name)
     os.makedirs(transcript_dir, exist_ok=True)
