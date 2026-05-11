@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Podcast</title>
+    <item>
+      <title>Episode One</title>
+      <link>https://example.com/ep1</link>
+      <guid>guid-001</guid>
+      <pubDate>Mon, 05 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/ep1.mp3" type="audio/mpeg" length="1000000"/>
+    </item>
+    <item>
+      <title>Episode Two</title>
+      <link>https://example.com/ep2</link>
+      <guid>guid-002</guid>
+      <pubDate>Tue, 06 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/ep2.mp3" type="audio/mpeg" length="2000000"/>
+    </item>
+    <item>
+      <title>Episode Three (No GUID)</title>
+      <link>https://example.com/ep3</link>
+      <pubDate>Wed, 07 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/ep3.mp3" type="audio/mpeg" length="3000000"/>
+    </item>
+    <item>
+      <title>Announcement (No Audio)</title>
+      <link>https://example.com/announce</link>
+      <guid>guid-004</guid>
+      <pubDate>Thu, 08 May 2026 12:00:00 +0000</pubDate>
+    </item>
+  </channel>
+</rss>
