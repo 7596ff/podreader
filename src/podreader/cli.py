@@ -39,7 +39,7 @@ def main():
     # process
     p_proc = sub.add_parser("process", help="Get transcript for an episode")
     p_proc.add_argument("feed", help="Feed name")
-    p_proc.add_argument("episode", help="Episode reference (guid, title substring, or index)")
+    p_proc.add_argument("episode", nargs="?", default=None, help="Episode reference (guid, title substring, or index). Omit to process all unprocessed.")
     p_proc.add_argument("--latest", action="store_true", help="Pick most recent on ambiguous match")
 
     # read
@@ -187,7 +187,58 @@ def cmd_process(args):
     if args.feed not in config["feeds"]:
         raise KeyError(f"Feed '{args.feed}' not found")
 
+    feed_conf = config["feeds"][args.feed]
     feed_state = state.get(args.feed, {})
+    extractors = load_extractors()
+
+    # If no episode specified, process all unprocessed/failed episodes
+    if args.episode is None:
+        guids_to_process = [
+            guid for guid, ep in feed_state.items()
+            if ep.get("status") in ("unprocessed", "failed")
+        ]
+        if not guids_to_process:
+            print(f"{args.feed}: nothing to process")
+            return
+
+        # Fetch feed once for all episodes
+        feed = fetch_feed(feed_conf["url"])
+        print(f"{args.feed}: processing {len(guids_to_process)} episodes")
+
+        for guid in guids_to_process:
+            ep = feed_state[guid]
+            print(f"  {ep['title']}...")
+            entry = None
+            for e in feed.entries:
+                if guid_or_fallback(e) == guid:
+                    entry = e
+                    break
+
+            if entry is None:
+                print(f"    → skipped (not in current feed XML)")
+                state[args.feed][guid]["status"] = "skipped"
+                save_state(state, STATE_PATH)
+                continue
+
+            try:
+                _process_episode(entry, args.feed, feed_conf, extractors, state, guid)
+            except ValueError as e:
+                if "skip" in str(e).lower():
+                    state[args.feed][guid]["status"] = "skipped"
+                    print(f"    → skipped (no audio/extractor)")
+                else:
+                    state[args.feed][guid]["status"] = "failed"
+                    print(f"    → failed: {e}")
+            except Exception as e:
+                state[args.feed][guid]["status"] = "failed"
+                print(f"    → failed: {e}")
+
+            # Incremental persistence
+            save_state(state, STATE_PATH)
+
+        return
+
+    # Single episode mode
     guid = resolve_episode(feed_state, args.episode, latest=args.latest)
     ep = feed_state[guid]
 
@@ -195,11 +246,7 @@ def cmd_process(args):
         print(f"Episode already {ep['status']}: {ep['title']}")
         return
 
-    feed_conf = config["feeds"][args.feed]
-    extractors = load_extractors()
-
-    # We need the feedparser entry to pass to the extractor
-    # Re-fetch the feed to get it
+    # Re-fetch the feed to get the feedparser entry
     feed = fetch_feed(feed_conf["url"])
     entry = None
     for e in feed.entries:
