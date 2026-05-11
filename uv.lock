@@ -728,10 +728,6 @@ dependencies = [
     { name = "feedparser" },
     { name = "requests" },
     { name = "tomli-w" },
-]
-
-[package.optional-dependencies]
-whisper = [
     { name = "whisper-timestamped" },
 ]
 
@@ -741,9 +737,8 @@ requires-dist = [
     { name = "feedparser" },
     { name = "requests" },
     { name = "tomli-w" },
-    { name = "whisper-timestamped", marker = "extra == 'whisper'" },
+    { name = "whisper-timestamped" },
 ]
-provides-extras = ["whisper"]
 
 [[package]]
 name = "regex"

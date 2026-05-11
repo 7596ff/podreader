@@ -7,10 +7,8 @@ dependencies = [
     "requests",
     "beautifulsoup4",
     "tomli-w",
+    "whisper-timestamped",
 ]
-
-[project.optional-dependencies]
-whisper = ["whisper-timestamped"]
 
 [project.scripts]
 podreader = "podreader.cli:main"
