@@ -27,9 +27,8 @@
             tomli-w
           ];
 
-          # openai-whisper is a runtime dependency — the `whisper` CLI
-          # must be on PATH for the whisper fallback to work
-          propagatedBuildInputs = [ python.pkgs.openai-whisper ];
+          # faster-whisper for transcription (CTranslate2 backend, ~4x faster than openai-whisper)
+          propagatedBuildInputs = [ python.pkgs.faster-whisper ];
 
           nativeCheckInputs = [ python.pkgs.pytest ];
           checkPhase = ''

@@ -1,8 +1,7 @@
 """Transcript fetching — extractor dispatch, whisper fallback, skip logic."""
 
+import inspect
 import os
-import subprocess
-import sys
 import requests
 
 
@@ -12,7 +11,7 @@ def resolve_transcript(entry, feed_name, feed_config, extractors, data_dir):
 
     Fallback chain:
     1. Extractor (web fetch + extract)
-    2. Whisper (download audio + subprocess transcribe)
+    2. Whisper (download audio + faster-whisper transcribe)
     3. Skip (no enclosure, no extractor) — raises ValueError
     """
     extractor_name = feed_config.get("extractor")
@@ -23,8 +22,7 @@ def resolve_transcript(entry, feed_name, feed_config, extractors, data_dir):
         url = extractor.get_transcript_url(entry)
         if url is not None:
             response = requests.get(url)
-            # Pass source_url if the extractor accepts it (e.g. democracynow needs it for date filtering)
-            import inspect
+            # Pass source_url if the extractor accepts it
             sig = inspect.signature(extractor.extract_transcript)
             if "source_url" in sig.parameters:
                 text = extractor.extract_transcript(response.text, source_url=url)
@@ -83,25 +81,17 @@ def download_audio(url, cache_dir):
 
 
 def run_whisper(audio_path, model="base"):
-    """Run openai-whisper as subprocess. Returns transcript text."""
-    output_dir = os.path.dirname(audio_path)
-    result = subprocess.run(
-        [
-            "whisper", audio_path,
-            "--model", model,
-            "--output_format", "txt",
-            "--output_dir", output_dir,
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Whisper failed: {result.stderr}")
+    """Transcribe audio using faster-whisper. Returns transcript text."""
+    from faster_whisper import WhisperModel
 
-    # whisper outputs a .txt file named after the input file
-    txt_path = os.path.join(output_dir, os.path.splitext(os.path.basename(audio_path))[0] + ".txt")
-    if not os.path.exists(txt_path):
-        raise RuntimeError(f"Whisper produced no output file. stderr: {result.stderr}")
+    whisper_model = WhisperModel(model, device="cpu", compute_type="int8")
+    segments, _info = whisper_model.transcribe(audio_path)
 
-    with open(txt_path, "r") as f:
-        return f.read()
+    lines = []
+    for segment in segments:
+        lines.append(segment.text.strip())
+
+    if not lines:
+        raise RuntimeError(f"Whisper produced no output for {audio_path}")
+
+    return "\n".join(lines)
