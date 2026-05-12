@@ -2,7 +2,7 @@
 
 DN transcripts require multiple page fetches:
 1. Show index page: https://www.democracynow.org/shows/YYYY/M/D
-2. Extract segment URLs from the index page
+2. Extract segment URLs from the index page (filtered to that day only)
 3. Fetch each segment page for its transcript
 4. Combine all segments into one transcript
 """
@@ -26,21 +26,36 @@ def get_transcript_url(entry):
     return None
 
 
-def extract_transcript(html):
+def extract_transcript(html, *, source_url=None):
     """Extract transcript from DN show index page.
 
-    This fetches the index page, finds all segment links,
+    This fetches the index page, finds all segment links for that day,
     fetches each segment, and combines the transcripts.
+
+    source_url is used to extract the date and filter segments to this
+    day only (the show page sidebar links to other days' segments).
     """
     soup = BeautifulSoup(html, "html.parser")
 
-    # Find the show date from the page to construct segment URLs
-    # Look for segment links: /YYYY/M/D/slug pattern
+    # Extract date prefix from source URL to filter segments
+    date_prefix = None
+    if source_url:
+        m = re.search(r"/shows/(\d{4})/(\d{1,2})/(\d{1,2})", source_url)
+        if m:
+            y, mo, d = m.groups()
+            date_prefix = f"/{y}/{int(mo)}/{int(d)}/"
+
+    # Find segment links: /YYYY/M/D/slug pattern
     segment_links = set()
     for a in soup.find_all("a", href=True):
-        href = a["href"]
-        # Match /YYYY/M/D/slug but not /shows/ or /full_show
-        if re.match(r"/\d{4}/\d{1,2}/\d{1,2}/\w+", href) and "full_show" not in href:
+        href = a["href"].split("#")[0]  # strip fragments
+        # Match /YYYY/M/D/slug but not /shows/, /full_show, or /stream
+        if re.match(r"/\d{4}/\d{1,2}/\d{1,2}/\w+", href):
+            if "full_show" in href or "/stream" in href:
+                continue
+            # Filter to this day only
+            if date_prefix and not href.startswith(date_prefix):
+                continue
             segment_links.add(href)
 
     if not segment_links:
@@ -71,7 +86,6 @@ def extract_transcript(html):
 
 def _extract_segment_title(soup):
     """Extract the segment title from a DN segment page."""
-    # Try h1 or the story headline
     h1 = soup.find("h1")
     if h1:
         return h1.get_text(strip=True)
@@ -83,21 +97,20 @@ def _extract_page_transcript(soup):
     # DN structure: .transcript is a label, the actual text is in a sibling div.text
     transcript_label = soup.select_one(".transcript")
     if transcript_label:
-        # Look for the sibling div with class "text"
         for sib in transcript_label.next_siblings:
             if hasattr(sib, "name") and sib.name == "div" and "text" in (sib.get("class") or []):
                 text = sib.get_text(separator="\n", strip=True)
                 if len(text) > 100:
                     return text
 
-    # Also try direct .text selector in case of different page structure
+    # Also try direct .text selector
     text_div = soup.select_one("div.text")
     if text_div:
         text = text_div.get_text(separator="\n", strip=True)
         if len(text) > 100:
             return text
 
-    # Fallback: look for the main content area and extract paragraphs
+    # Fallback: main content area paragraphs
     for selector in [".story_body", "article", ".main_container", "#content", "main"]:
         content = soup.select_one(selector)
         if content:

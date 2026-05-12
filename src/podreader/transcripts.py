@@ -23,7 +23,13 @@ def resolve_transcript(entry, feed_name, feed_config, extractors, data_dir):
         url = extractor.get_transcript_url(entry)
         if url is not None:
             response = requests.get(url)
-            text = extractor.extract_transcript(response.text)
+            # Pass source_url if the extractor accepts it (e.g. democracynow needs it for date filtering)
+            import inspect
+            sig = inspect.signature(extractor.extract_transcript)
+            if "source_url" in sig.parameters:
+                text = extractor.extract_transcript(response.text, source_url=url)
+            else:
+                text = extractor.extract_transcript(response.text)
             path = _save_transcript(text, feed_name, entry, data_dir)
             return text, path
 
