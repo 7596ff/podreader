@@ -18,7 +18,8 @@ DEFAULT_CONFIG = {
 def load_config(path):
     """Load config from TOML file. Returns default config if file doesn't exist."""
     if not os.path.exists(path):
-        return dict(DEFAULT_CONFIG)
+        import copy
+        return copy.deepcopy(DEFAULT_CONFIG)
     with open(path, "rb") as f:
         return tomllib.load(f)
 

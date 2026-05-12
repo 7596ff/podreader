@@ -5,7 +5,7 @@ import json
 import os
 import sys
 
-from podreader.config import load_config, save_config, add_feed, get_extractor_name
+from podreader.config import load_config, save_config, add_feed, remove_feed, get_extractor_name
 from podreader.state import load_state, save_state, guid_or_fallback, slugify, transition_status
 from podreader.feeds import fetch_feed, new_episodes
 from podreader.transcripts import resolve_transcript
@@ -26,6 +26,11 @@ def main():
     p_add.add_argument("url", help="RSS feed URL")
     p_add.add_argument("--name", help="Feed name (auto-derived if not given)")
     p_add.add_argument("--extractor", help="Extractor plugin name")
+
+    # remove
+    p_remove = sub.add_parser("remove", help="Unsubscribe from a feed")
+    p_remove.add_argument("feed", help="Feed name")
+    p_remove.add_argument("--keep-data", action="store_true", help="Keep transcripts and state")
 
     # list
     sub.add_parser("list", help="List all feeds and episode counts")
@@ -70,6 +75,8 @@ def main():
     try:
         if args.command == "add":
             cmd_add(args)
+        elif args.command == "remove":
+            cmd_remove(args)
         elif args.command == "list":
             cmd_list(args)
         elif args.command == "fetch":
@@ -99,6 +106,35 @@ def cmd_add(args):
     config = add_feed(config, name, args.url, extractor=args.extractor)
     save_config(config, CONFIG_PATH)
     print(f"Added feed: {name}")
+
+
+def cmd_remove(args):
+    """Unsubscribe from a feed. Removes config entry, state, and transcripts."""
+    config_path = os.path.join(DATA_DIR, "config.toml")
+    config = load_config(config_path)
+    config = remove_feed(config, args.feed)
+    save_config(config, config_path)
+
+    if not args.keep_data:
+        # Remove state for this feed
+        state_path = os.path.join(DATA_DIR, "state.json")
+        state = load_state(state_path)
+        if args.feed in state:
+            del state[args.feed]
+            save_state(state, state_path)
+
+        # Remove transcripts directory
+        import shutil
+        transcript_dir = os.path.join(DATA_DIR, "transcripts", args.feed)
+        if os.path.isdir(transcript_dir):
+            shutil.rmtree(transcript_dir)
+
+        # Remove cache directory
+        cache_dir = os.path.join(DATA_DIR, "cache", args.feed)
+        if os.path.isdir(cache_dir):
+            shutil.rmtree(cache_dir)
+
+    print(f"Removed feed '{args.feed}'")
 
 
 def cmd_list(args):
